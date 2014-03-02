@@ -5,6 +5,7 @@ import networkx as nx
 import io
 import tempfile
 import os
+import json
 
 class TestGraph(object):
 
@@ -56,7 +57,7 @@ class TestGraph(object):
               {
                 "_id":"n10",
                 "_type":"vertex"
-              },
+              }
             ],
             "edges": [
               {
@@ -74,6 +75,11 @@ class TestGraph(object):
                 "_type":"edge",
                 "_outV":"n2",
                 "_inV":"n3"
+              },
+              {
+                "_type":"edge",
+                "_outV":"n3",
+                "_inV":"n4"
               },
               {
                 "_type":"edge",
@@ -109,7 +115,7 @@ class TestGraph(object):
                 "_type":"edge",
                 "_outV":"n8",
                 "_inV":"n9"
-              },
+              }
             ]
           }
         }
@@ -134,4 +140,19 @@ class TestGraph(object):
             io.BytesIO(self.simple_directed_data.encode('UTF-8'))
 
 
+    def test_read_simple_directed_graphson(self):
+        data = json.loads(self.simple_directed_data)
 
+        G=self.simple_directed_graph
+        H=nx.read_graphson(self.simple_directed_fh)
+        assert_equal(sorted(G.nodes()),sorted(H.nodes()))
+        assert_equal(sorted(G.edges()),sorted(H.edges()))
+        assert_equal(sorted(G.edges(data=True)),
+                     sorted(H.edges(data=True)))
+        self.simple_directed_fh.seek(0)
+
+        I=nx.parse_graphson(self.simple_directed_data)
+        assert_equal(sorted(G.nodes()),sorted(I.nodes()))
+        assert_equal(sorted(G.edges()),sorted(I.edges()))
+        assert_equal(sorted(G.edges(data=True)),
+                     sorted(I.edges(data=True)))
