@@ -175,10 +175,12 @@ class GraphSONWriter(object):
         if G.is_multigraph():
             for src,dest,key,data in G.edges_iter(data=True, keys=True):
                 d = {'_id':key, '_outV':src, '_inV':dest, '_type':'edge'}
+                d.update(data)
                 self.data['edges'].append(d)
         else:
             for src,dest,data in G.edges_iter(data=True):
                 d = {'_outV':src, '_inV':dest, '_type':'edge'}
+                d.update(data)
                 edge_id = data.get('id',None)
                 if edge_id:
                     d['_id'] = edge_id
@@ -237,7 +239,7 @@ class GraphSONReader(object):
         G=nx.MultiDiGraph()
 
         # add nodes
-        if self.mode == "NORMAL":
+        if self.mode in ("NORMAL", "EXTENDED"):
             for node_dict in graph_dict['vertices']:
                 self.add_node(G, node_dict)
 
@@ -247,7 +249,6 @@ class GraphSONReader(object):
 
             # add graph data
             G.graph.update(graph_dict)
-
         else:
             raise nx.NetworkXError("Unrecognized GraphSON 'mode'")
 
@@ -260,15 +261,48 @@ class GraphSONReader(object):
         else:
             return G
 
+    @staticmethod
+    def _fromValueDict(d):
+        """
+        Converts a GraphSON value dict into proper
+        type and value
+        """
+        TYPES = { "boolean":bool,"string":unicode,"integer":int,"long":long,
+                  "float":float,"double":float,"short":int,"byte":bytearray,
+                  "list":list,"map":dict}
+        try:
+            t = TYPES[d['type']]
+        except KeyError:
+            nx.NetworkXError("Unknown data type provided: %s" % d.get('type', None))
+
+        return t(d['value'])
+
+    @staticmethod
+    def _convertDict(d, ignore_keys=None, mode="NORMAL"):
+        d = dict(d)
+        for k in ignore_keys:
+            try:
+                del d[k]
+            except KeyError:
+                pass
+
+        if mode == "EXTENDED":
+            for k,v in d.iteritems():
+                if isinstance(v, dict):
+                    d[k] = GraphSONReader._fromValueDict(v)
+                else:
+                    d[k] = v
+        return d
+
     def add_node(self, G, node_dict):
         """Add a node to the graph.
         """
         # find the node by id and cast it to the appropriate type
         node_id = self.node_type(node_dict.get("_id"))
 
-        # ID already stored on node (not needed in data)
-        d = dict(node_dict)
-        del d['_id']
+        # ID/type already stored on node (not needed in data)
+        ignore_keys = ["_id", "_type"]
+        d = self._convertDict(node_dict, ignore_keys=ignore_keys, mode=self.mode)
 
         G.add_node(node_id, d)
 
@@ -280,13 +314,8 @@ class GraphSONReader(object):
         edge_id = edge_dict.get("_id", None)
 
         # ignore keys
-        ignore_keys = ["_id", "_outV", "_inV"]
-        data = dict(edge_dict)
-        for k in ignore_keys:
-            try:
-                del data[k]
-            except KeyError:
-                pass
+        ignore_keys = ["_id", "_outV", "_inV", "_type"]
+        data = self._convertDict(edge_dict, ignore_keys=ignore_keys, mode=self.mode)
 
         if edge_id:
             data["id"] = edge_id

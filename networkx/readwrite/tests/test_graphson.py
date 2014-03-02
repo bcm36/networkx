@@ -227,6 +227,169 @@ class TestGraph(object):
         """
         self.attribute_fh = io.BytesIO(self.attribute_data.encode('UTF-8'))
 
+        self.extended_graph=nx.DiGraph(id='G')
+        self.extended_graph.add_node('3', name='lop', lang='java')
+        self.extended_graph.add_node('2', name='vadas', age=27)
+        self.extended_graph.add_node('1', name='marko', age=29)
+        self.extended_graph.add_node('6', name='peter', age=35)
+        self.extended_graph.add_node('5', name='ripple', lang='java')
+        self.extended_graph.add_node('4', name='josh', age=32)
+        self.extended_graph.add_edge('4','5',id='10',weight=float(1.0), _label="created")
+        self.extended_graph.add_edge('1','2',id='7',weight=float(0.5), _label="knows")
+        self.extended_graph.add_edge('1','3',id='9',weight=float(0.4000000059604645), _label="created")
+        self.extended_graph.add_edge('1','4',id='8',weight=float(1.0), _label="knows")
+        self.extended_graph.add_edge('4','3',id='11',weight=float(0.4000000059604645), _label="created")
+        self.extended_graph.add_edge('6','3',id='12',weight=float(0.20000000298023224 ), _label="created")
+
+        self.extended_data = """
+                {
+                "mode":"EXTENDED",
+                "vertices": [
+                    {
+                        "name": {
+                            "type": "string",
+                            "value": "lop"
+                        },
+                        "lang": {
+                            "type": "string",
+                            "value": "java"
+                        },
+                        "_id": "3",
+                        "_type": "vertex"
+                    },
+                    {
+                        "name": {
+                            "type": "string",
+                            "value": "vadas"
+                        },
+                        "age": {
+                            "type": "integer",
+                            "value": "27"
+                        },
+                        "_id": "2",
+                        "_type": "vertex"
+                    },
+                    {
+                        "name": {
+                            "type": "string",
+                            "value": "marko"
+                        },
+                        "age": {
+                            "type": "integer",
+                            "value": "29"
+                        },
+                        "_id": "1",
+                        "_type": "vertex"
+                    },
+                    {
+                        "name": {
+                            "type": "string",
+                            "value": "peter"
+                        },
+                        "age": {
+                            "type": "integer",
+                            "value": "35"
+                        },
+                        "_id": "6",
+                        "_type": "vertex"
+                    },
+                    {
+                        "name": {
+                            "type": "string",
+                            "value": "ripple"
+                        },
+                        "lang": {
+                            "type": "string",
+                            "value": "java"
+                        },
+                        "_id": "5",
+                        "_type": "vertex"
+                    },
+                    {
+                        "name": {
+                            "type": "string",
+                            "value": "josh"
+                        },
+                        "age": {
+                            "type": "integer",
+                            "value": "32"
+                        },
+                        "_id": "4",
+                        "_type": "vertex"
+                    }
+                ],
+                "edges": [
+                    {
+                        "weight": {
+                            "type": "float",
+                            "value": "1"
+                        },
+                        "_id": "10",
+                        "_type": "edge",
+                        "_outV": "4",
+                        "_inV": "5",
+                        "_label": "created"
+                    },
+                    {
+                        "weight": {
+                            "type": "float",
+                            "value": "0.5"
+                        },
+                        "_id": "7",
+                        "_type": "edge",
+                        "_outV": "1",
+                        "_inV": "2",
+                        "_label": "knows"
+                    },
+                    {
+                        "weight": {
+                            "type": "float",
+                            "value": "0.4000000059604645"
+                        },
+                        "_id": "9",
+                        "_type": "edge",
+                        "_outV": "1",
+                        "_inV": "3",
+                        "_label": "created"
+                    },
+                    {
+                        "weight": {
+                            "type": "float",
+                            "value": 1
+                        },
+                        "_id": "8",
+                        "_type": "edge",
+                        "_outV": "1",
+                        "_inV": "4",
+                        "_label": "knows"
+                    },
+                    {
+                        "weight": {
+                            "type": "float",
+                            "value": "0.4000000059604645"
+                        },
+                        "_id": "11",
+                        "_type": "edge",
+                        "_outV": "4",
+                        "_inV": "3",
+                        "_label": "created"
+                    },
+                    {
+                        "weight": {
+                            "type": "float",
+                            "value": "0.20000000298023224"
+                        },
+                        "_id": "12",
+                        "_type": "edge",
+                        "_outV": "6",
+                        "_inV": "3",
+                        "_label": "created"
+                    }
+                ]
+            }
+            """
+        self.extended_fh = io.BytesIO(self.extended_data.encode('UTF-8'))
+
     def test_read_simple_directed_graphson(self):
         data = json.loads(self.simple_directed_data)
 
@@ -271,7 +434,32 @@ class TestGraph(object):
         he=sorted(I.edges(data=True))
         for a,b in zip(ge,he):
             assert_equal(a,b)
-if __name__ == "__main__":
-    t = TestGraph()
-    t.setUp()
-    t.test_read_attribute_graphml()
+
+    def test_read_extended_graphson(self):
+        G=self.extended_graph
+        H=nx.read_graphson(self.extended_fh)
+        assert_equal(sorted(G.nodes()),sorted(H.nodes()))
+        assert_equal(sorted(G.edges()),sorted(H.edges()))
+        assert_equal(sorted(G.edges(data=True)),
+                     sorted(H.edges(data=True)))
+        self.extended_fh.seek(0)
+
+        I=nx.parse_graphson(self.extended_data)
+        assert_equal(sorted(G.nodes()),sorted(I.nodes()))
+        assert_equal(sorted(G.edges()),sorted(I.edges()))
+        assert_equal(sorted(G.edges(data=True)),
+                     sorted(I.edges(data=True)))
+
+
+    def test_write_read_extended_graphson(self):
+        G=self.extended_graph
+        fh=io.BytesIO()
+        nx.write_graphson(G,fh)
+        fh.seek(0)
+        fh.seek(0)
+        H=nx.read_graphson(fh)
+        assert_equal(sorted(G.nodes()),sorted(H.nodes()))
+        assert_equal(sorted(G.edges()),sorted(H.edges()))
+        assert_equal(sorted(G.edges(data=True)),
+                     sorted(H.edges(data=True)))
+        self.extended_fh.seek(0)
