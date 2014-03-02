@@ -140,6 +140,93 @@ class TestGraph(object):
             io.BytesIO(self.simple_directed_data.encode('UTF-8'))
 
 
+        self.attribute_graph=nx.DiGraph(id='G')
+        self.attribute_graph.graph['node_default']={'color':'yellow'}
+        self.attribute_graph.add_node('n0',color='green')
+        self.attribute_graph.add_node('n2',color='blue')
+        self.attribute_graph.add_node('n3',color='red')
+        self.attribute_graph.add_node('n4')
+        self.attribute_graph.add_node('n5',color='turquoise')
+        self.attribute_graph.add_edge('n0','n2',id='e0',weight=1.0)
+        self.attribute_graph.add_edge('n0','n1',id='e1',weight=1.0)
+        self.attribute_graph.add_edge('n1','n3',id='e2',weight=2.0)
+        self.attribute_graph.add_edge('n3','n2',id='e3')
+        self.attribute_graph.add_edge('n2','n4',id='e4')
+        self.attribute_graph.add_edge('n3','n5',id='e5')
+        self.attribute_graph.add_edge('n5','n4',id='e6',weight=1.1)
+
+        self.attribute_data = """{
+            "graph": {
+                "vertices": [
+                    {
+                        "_id": "n0",
+                        "color": "green"
+                    },
+                    {
+                        "_id": "n1"
+                    },
+                    {
+                        "_id": "n2",
+                        "color": "blue"
+                    },
+                    {
+                        "_id": "n3",
+                        "color": "red"
+                    },
+                    {
+                        "_id": "n4"
+                    },
+                    {
+                        "_id": "n5",
+                        "color": "turquoise"
+                    }
+                ],
+                "edges": [
+                    {
+                        "_id": "e0",
+                        "_outV": "n0",
+                        "_inV": "n2",
+                        "weight": 1
+                    },
+                    {
+                        "_id": "e1",
+                        "_outV": "n0",
+                        "_inV": "n1",
+                        "weight": 1
+                    },
+                    {
+                        "_id": "e2",
+                        "_outV": "n1",
+                        "_inV": "n3",
+                        "weight": 2
+                    },
+                    {
+                        "_id": "e3",
+                        "_outV": "n3",
+                        "_inV": "n2"
+                    },
+                    {
+                        "_id": "e4",
+                        "_outV": "n2",
+                        "_inV": "n4"
+                    },
+                    {
+                        "_id": "e5",
+                        "_outV": "n3",
+                        "_inV": "n5"
+                    },
+                    {
+                        "_id": "e6",
+                        "_outV": "n5",
+                        "_inV": "n4",
+                        "weight": 1.1
+                    }
+                ]
+            }
+        }
+        """
+        self.attribute_fh = io.BytesIO(self.attribute_data.encode('UTF-8'))
+
     def test_read_simple_directed_graphson(self):
         data = json.loads(self.simple_directed_data)
 
@@ -169,7 +256,22 @@ class TestGraph(object):
                      sorted(H.edges(data=True)))
         self.simple_directed_fh.seek(0)
 
+    def test_read_attribute_graphml(self):
+        G=self.attribute_graph
+        H=nx.read_graphson(self.attribute_fh)
+        assert_equal(sorted(G.nodes(True)),sorted(H.nodes(data=True)))
+        ge=sorted(G.edges(data=True))
+        he=sorted(H.edges(data=True))
+        for a,b in zip(ge,he):
+            assert_equal(a,b)
+        self.attribute_fh.seek(0)
+        I=nx.parse_graphson(self.attribute_data)
+        assert_equal(sorted(G.nodes(True)),sorted(I.nodes(data=True)))
+        ge=sorted(G.edges(data=True))
+        he=sorted(I.edges(data=True))
+        for a,b in zip(ge,he):
+            assert_equal(a,b)
 if __name__ == "__main__":
     t = TestGraph()
     t.setUp()
-    t.test_write_read_simple_directed_graphson()
+    t.test_read_attribute_graphml()

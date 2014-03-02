@@ -266,16 +266,28 @@ class GraphSONReader(object):
         # find the node by id and cast it to the appropriate type
         node_id = self.node_type(node_dict.get("_id"))
 
-        G.add_node(node_id, node_dict)
+        # ID already stored on node (not needed in data)
+        d = dict(node_dict)
+        del d['_id']
+
+        G.add_node(node_id, d)
 
     def add_edge(self, G, edge_dict):
         """Add an edge to the graph.
         """
         source = self.node_type(edge_dict.get("_outV"))
         target = self.node_type(edge_dict.get("_inV"))
-
         edge_id = edge_dict.get("_id", None)
-        data = {}
+
+        # ignore keys
+        ignore_keys = ["_id", "_outV", "_inV"]
+        data = dict(edge_dict)
+        for k in ignore_keys:
+            try:
+                del data[k]
+            except KeyError:
+                pass
+
         if edge_id:
             data["id"] = edge_id
 
