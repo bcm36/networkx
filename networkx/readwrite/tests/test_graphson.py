@@ -156,3 +156,20 @@ class TestGraph(object):
         assert_equal(sorted(G.edges()),sorted(I.edges()))
         assert_equal(sorted(G.edges(data=True)),
                      sorted(I.edges(data=True)))
+
+    def test_write_read_simple_directed_graphson(self):
+        G=self.simple_directed_graph
+        fh=io.BytesIO()
+        nx.write_graphson(G,fh)
+        fh.seek(0)
+        H=nx.read_graphson(fh)
+        assert_equal(sorted(G.nodes()),sorted(H.nodes()))
+        assert_equal(sorted(G.edges()),sorted(H.edges()))
+        assert_equal(sorted(G.edges(data=True)),
+                     sorted(H.edges(data=True)))
+        self.simple_directed_fh.seek(0)
+
+if __name__ == "__main__":
+    t = TestGraph()
+    t.setUp()
+    t.test_write_read_simple_directed_graphson()

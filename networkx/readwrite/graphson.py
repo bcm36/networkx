@@ -30,12 +30,43 @@ __author__ = """\n""".join(['Salim Fadhley',
                             'Aric Hagberg (hagberg@lanl.gov)'
                             ])
 
-__all__ = ['parse_graphson', 'read_graphson', 'GraphSONReader']
+__all__ = ['parse_graphson', 'read_graphson', 'write_graphson', 'GraphSONReader', 'GraphSONWriter']
 
 import networkx as nx
 from networkx.utils import open_file, make_str
 import warnings
 import json
+import collections
+
+@open_file(1,mode='wb')
+def write_graphson(G, path, encoding='utf-8',prettyprint=True):
+    """Write G in GraphML XML format to path
+
+    Parameters
+    ----------
+    G : graph
+       A networkx graph
+    path : file or string
+       File or filename to write.
+       Filenames ending in .gz or .bz2 will be compressed.
+    encoding : string (optional)
+       Encoding for text data.
+    prettyprint : bool (optional)
+       If True use line breaks and indenting in output XML.
+
+    Examples
+    --------
+    >>> G=nx.path_graph(4)
+    >>> nx.write_graphml(G, "test.graphml")
+
+    Notes
+    -----
+    This implementation does not support mixed graphs (directed and unidirected
+    edges together) hyperedges, nested graphs, or ports.
+    """
+    writer = GraphSONWriter(encoding=encoding,prettyprint=prettyprint)
+    writer.set_graph(G)
+    writer.dump(path)
 
 @open_file(0,mode='rb')
 def read_graphson(path,node_type=str):
@@ -105,6 +136,78 @@ def parse_graphson(graphson_string, node_type=str):
 
     return glist
 
+class GraphSONWriter(object):
+    def __init__(self, graph=None, encoding="utf-8",prettyprint=True):
+
+        self.prettyprint=prettyprint
+        self.encoding = encoding
+        self.keys={}
+
+        self.data = {}
+
+        if graph is not None:
+            self.set_graph(graph)
+
+
+    def __str__(self):
+        if self.prettyprint:
+            pass #@todo pprint json
+            #self.indent(self.xml)
+
+        return json.dump(self.data)
+
+    def set_graph(self, G):
+        """
+        Replaces any data with graph G
+        """
+        #retain order (vertices must come first)
+        self.data = collections.OrderedDict()
+        self.data['vertices'] = []
+        self.data['edges'] = []
+
+        for node,data in G.nodes_iter(data=True):
+            d = {'_id':node, '_type':'vertex'}
+            d.update(data)
+
+            self.data['vertices'].append(d)
+
+
+        if G.is_multigraph():
+            for src,dest,key,data in G.edges_iter(data=True, keys=True):
+                d = {'_id':key, '_outV':src, '_inV':dest, '_type':'edge'}
+                self.data['edges'].append(d)
+        else:
+            for src,dest,data in G.edges_iter(data=True):
+                d = {'_outV':src, '_inV':dest, '_type':'edge'}
+                edge_id = data.get('id',None)
+                if edge_id:
+                    d['_id'] = edge_id
+
+                self.data['edges'].append(d)
+
+    def dump(self, stream):
+        if self.prettyprint:
+            #self.indent(self.xml)
+            pass
+
+        s = json.dump(self.data, stream)
+
+    def indent(self, elem, level=0):
+        # in-place prettyprint formatter
+        i = "\n" + level*"  "
+        if len(elem):
+            if not elem.text or not elem.text.strip():
+                elem.text = i + "  "
+            if not elem.tail or not elem.tail.strip():
+                elem.tail = i
+            for elem in elem:
+                self.indent(elem, level+1)
+            if not elem.tail or not elem.tail.strip():
+                elem.tail = i
+        else:
+            if level and (not elem.tail or not elem.tail.strip()):
+                elem.tail = i
+
 
 class GraphSONReader(object):
     """Read a GraphSON document.  Produces NetworkX graph objects.
@@ -171,7 +274,7 @@ class GraphSONReader(object):
         source = self.node_type(edge_dict.get("_outV"))
         target = self.node_type(edge_dict.get("_inV"))
 
-        edge_id = edge_dict.get("_id")
+        edge_id = edge_dict.get("_id", None)
         data = {}
         if edge_id:
             data["id"] = edge_id
