@@ -38,6 +38,10 @@ import warnings
 import json
 import collections
 
+# keys used in vertex dicts
+GRAPHSON_NODE_KEYS = ["_id", "_type"]
+GRAPHSON_EDGE_KEYS = ["_id", "_outV", "_inV", "_type"]
+
 @open_file(1,mode='wb')
 def write_graphson(G, path, encoding='utf-8',prettyprint=True):
     """Write G in GraphML XML format to path
@@ -137,16 +141,18 @@ def parse_graphson(graphson_string, node_type=str):
     return glist
 
 class GraphSONWriter(object):
-    def __init__(self, graph=None, encoding="utf-8",prettyprint=True):
+    def __init__(self, graph=None, encoding="utf-8", prettyprint=True, mode="NORMAL"):
 
         self.prettyprint=prettyprint
         self.encoding = encoding
+        self.mode = mode
         self.keys={}
 
         self.data = {}
 
         if graph is not None:
             self.set_graph(graph)
+
 
 
     def __str__(self):
@@ -171,7 +177,6 @@ class GraphSONWriter(object):
 
             self.data['vertices'].append(d)
 
-
         if G.is_multigraph():
             for src,dest,key,data in G.edges_iter(data=True, keys=True):
                 d = {'_id':key, '_outV':src, '_inV':dest, '_type':'edge'}
@@ -189,26 +194,52 @@ class GraphSONWriter(object):
 
     def dump(self, stream):
         if self.prettyprint:
-            #self.indent(self.xml)
-            pass
-
-        s = json.dump(self.data, stream)
-
-    def indent(self, elem, level=0):
-        # in-place prettyprint formatter
-        i = "\n" + level*"  "
-        if len(elem):
-            if not elem.text or not elem.text.strip():
-                elem.text = i + "  "
-            if not elem.tail or not elem.tail.strip():
-                elem.tail = i
-            for elem in elem:
-                self.indent(elem, level+1)
-            if not elem.tail or not elem.tail.strip():
-                elem.tail = i
+            indent=4
         else:
-            if level and (not elem.tail or not elem.tail.strip()):
-                elem.tail = i
+            indent=None
+
+        data = self.data
+        if self.mode == "EXTENDED":
+            nodes = []
+            for node in data['vertices']:
+                for k,v in node.iteritems():
+                    if k not in GRAPHSON_NODE_KEYS:
+                        node[k] = self._toValueDict(v)
+                nodes.append(node)
+            data['vertices'] = nodes
+
+            edges = []
+            for edge in data['edges']:
+                for k,v in edge.iteritems():
+                    if k not in GRAPHSON_EDGE_KEYS:
+                        edge[k] = self._toValueDict(v)
+                edges.append(edge)
+            data['edges'] = edges
+
+        s = json.dump(data, stream, indent=indent)
+
+    @staticmethod
+    def _toValueDict(v):
+        """
+        Converts a GraphSON value dict into proper
+        type and value
+        """
+
+        # lookup python types -> GraphSON types`
+        TYPES = { "bool":"boolean","str":"string","unicode":"string","int":"integer","long":"long",
+                  "float":"float","bytearray":"byte",
+                  "list":"list","dict":"map"}
+
+        try:
+            value_type = TYPES[type(v).__name__]
+        except KeyError:
+            nx.NetworkXError("Unknown data type provided: %s" % d.get('type', None))
+
+        #special case values
+        if type(v) in (list, dict):
+            v = json.dump(v)
+
+        return {"type":value_type, "value":v}
 
 
 class GraphSONReader(object):
@@ -301,8 +332,7 @@ class GraphSONReader(object):
         node_id = self.node_type(node_dict.get("_id"))
 
         # ID/type already stored on node (not needed in data)
-        ignore_keys = ["_id", "_type"]
-        d = self._convertDict(node_dict, ignore_keys=ignore_keys, mode=self.mode)
+        d = self._convertDict(node_dict, ignore_keys=GRAPHSON_NODE_KEYS, mode=self.mode)
 
         G.add_node(node_id, d)
 
@@ -314,8 +344,7 @@ class GraphSONReader(object):
         edge_id = edge_dict.get("_id", None)
 
         # ignore keys
-        ignore_keys = ["_id", "_outV", "_inV", "_type"]
-        data = self._convertDict(edge_dict, ignore_keys=ignore_keys, mode=self.mode)
+        data = self._convertDict(edge_dict, ignore_keys=GRAPHSON_EDGE_KEYS, mode=self.mode)
 
         if edge_id:
             data["id"] = edge_id
